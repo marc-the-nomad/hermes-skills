@@ -165,7 +165,7 @@ This is the same protocol Theseus used on W1-11 (2026-05-09 22:42:10) and Athena
 All profiles should source the shared hermes-user token from `gh`'s own config:
 
 ```bash
-export GH_TOKEN=$(awk '/oauth_token:/ {print $2}' /var/lib/hermes/.config/gh/hosts.yml)
+export GH_TOKEN=$(awk '/oauth_token:/ {print $2; exit}' /var/lib/hermes/.config/gh/hosts.yml)
 ```
 
 This works for every profile — the file is owned by `hermes:hermes`, world-readable mode 0644, and contains the PAT used by the `gh` CLI itself. No per-profile sops decryption needed.
@@ -209,7 +209,15 @@ Created on 2026-05-10 by Iris after a Phase 1 incident: Theseus completed all W1
 
 **v1.1 (2026-05-10 afternoon)** — added Branch Lifecycle + Stepping-stone Branches + Weekly Hygiene Check sections after a 14-branch sprawl was discovered (4 closed-PR orphans + 9 stepping-stones + 1 case-variant duplicate). `delete_branch_on_merge` was off; flipped to true. Stale branches deleted. Skill expanded with the boundedness rule.
 
-The four gates of "done" (commit + push + PR + report) plus the bounded branch lifecycle are the canonical answer. The dispatcher will eventually enforce gate 3 automatically; until then, this skill is the contract.
+**v1.2 (2026-05-10 evening)** — added Merge Cadence section: 3-deep max PR stack, merge strategies, bottom-up walk procedure, daily/weekly merge discipline. Motivated by the 7-PR-deep stack with nothing on main since May 7.
+
+**v1.3 (2026-05-10 evening)** — added §2 clarification: refined "no testing on live production hosts" after Nebula crash-loop incident. Four-row per-operation allow/deny table. Theseus SSH keys provisioned.
+
+**v1.4 (2026-05-13)** — two additions driven by recurring agent failures:
+- **GH_TOKEN sourcing:** agents burned ~17 combined iterations across Janus (t_3b53ec51) and Theseus (t_1ffa28f1) trying sops-decrypt of per-profile secrets for a GitHub token. The age key is lost (May 11) and not being regenerated. Added explicit sourcing from `/var/lib/hermes/.config/gh/hosts.yml`.
+- **Fifth gate of done:** draft PRs left sitting required `gh pr ready` from iris or Marc before merging. PRs #17 and #18 both hit this. Gate 4 is now: `gh pr ready <N>` before self-blocking, unless genuinely holding for WIP.
+
+The five gates of "done" (commit + push + PR + mark-ready + report) plus the bounded branch lifecycle are the canonical answer. The dispatcher will eventually enforce gate 3 automatically; until then, this skill is the contract.
 
 
 ---
