@@ -544,4 +544,8 @@ If your work has a true pre-condition gate (e.g. "athena must review the archite
 
 ---
 
+## Provenance
+
+**v1.2.0 → v1.3.0 (2026-05-13)** — added "Review tasks are SIBLINGS, not children" section. Three review-deadlock incidents in 48 hours (t_5be16953, t_bbac2e00, t_34f9e571) cost iris repeated manual unlinking. The deadlock occurs when a worker creates a reviewer's task with `parents=[my_task]` — the reviewer's task gets stuck in `todo` because the parent is still `running`, while the parent is stuck `blocked` waiting on the review. The fix: review tasks are siblings (no parent link), with the dependency direction expressed in the block reason (`review-required: PR #N (athena task t_xxxx)`). Also added a shared-state worksheet exception: genuine pre-review gates (e.g. "architecture review must finish before coding starts") ARE legitimate `parents=[review_task]`.
+
 *The task body is the worker's whole world. Write it like a memo to a smart stranger arriving at 2 AM. Specificity at authoring time saves N round-trips at execution time.*
