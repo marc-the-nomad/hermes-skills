@@ -1,7 +1,7 @@
 ---
 name: kanban-task-authoring
 description: "How task creators (Marc, Jude, Iris) write kanban tasks that workers can act on without round-trips. Title is a verb. Body has context, acceptance criteria, links, workspace, max-runtime. Bad tasks waste workers; good tasks compound the team's leverage."
-version: 1.3.0
+version: 1.3.1
 author: Marc Dion
 license: MIT
 metadata:
@@ -522,6 +522,8 @@ kanban_block("review-required: PR #N (athena task t_xxxx)")
 
 The mental model: **your task waits on the reviewer; the reviewer's task does NOT wait on you.** The dependency runs the OTHER way — expressed via the block reason that iris reads, not via `parents=[]`.
 
+**After the review completes:** the PR description MUST be updated to carry the audit line `Reviewed by <reviewer> in kanban task t_XXXXXXXX` before merge (see `mp-endpoint-git-hygiene` gate 6). The reviewer (or the PR author, whoever merges) is responsible for adding this line. Without it, git-log archaeology can't reconstruct who reviewed what. The kanban task being `done` is necessary but not sufficient — the PR body is the durable artifact that outlives the kanban board.
+
 ### When parent IS correct (legitimate children)
 
 Parent-linking is still correct for:
@@ -545,6 +547,8 @@ If your work has a true pre-condition gate (e.g. "athena must review the archite
 ---
 
 ## Provenance
+
+**v1.3.0 → v1.3.1 (2026-05-15)** — added "After the review completes" paragraph to the sibling-review section: the PR description MUST carry `Reviewed by <reviewer> in kanban task t_XXXXXXXX` before merge (cross-reference to `mp-endpoint-git-hygiene` gate 6). The kanban task being `done` is necessary but not sufficient — the PR body is the durable artifact.
 
 **v1.2.0 → v1.3.0 (2026-05-13)** — added "Review tasks are SIBLINGS, not children" section. Three review-deadlock incidents in 48 hours (t_5be16953, t_bbac2e00, t_34f9e571) cost iris repeated manual unlinking. The deadlock occurs when a worker creates a reviewer's task with `parents=[my_task]` — the reviewer's task gets stuck in `todo` because the parent is still `running`, while the parent is stuck `blocked` waiting on the review. The fix: review tasks are siblings (no parent link), with the dependency direction expressed in the block reason (`review-required: PR #N (athena task t_xxxx)`). Also added a shared-state worksheet exception: genuine pre-review gates (e.g. "architecture review must finish before coding starts") ARE legitimate `parents=[review_task]`.
 

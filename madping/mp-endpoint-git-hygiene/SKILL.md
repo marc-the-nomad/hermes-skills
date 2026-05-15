@@ -1,7 +1,7 @@
 ---
 name: mp-endpoint-git-hygiene
 description: "Git workflow rules for mp-endpoint contributors (theseus, athena, anyone touching the repo). Codifies push + PR + merge + close + branch-cleanup discipline. Auto-load."
-version: 1.4.0
+version: 1.5.0
 author: Marc Dion (via Iris, 2026-05-10)
 license: MIT
 metadata:
@@ -16,17 +16,40 @@ Hard rules for git workflow on `madping-cloud/mp-endpoint`. Read on every sessio
 
 The discipline in one line: **commit, push, PR, close — every single task. Branch lifecycle is bounded.**
 
-## The five gates of "done"
+## The six gates of "done"
 
-A task is only complete when ALL FIVE are true:
+A task is only complete when ALL SIX are true:
 
 1. **Committed** — every logical step has its own commit on a feature branch. Conventional-commit format (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`). Commit body or footer references the task ID (`Closes task t_xxxxx` or `Refs t_xxxxx`).
 2. **Pushed** — `git push --set-upstream origin <branch>`. No work sits in a local worktree. If the branch isn't on `origin`, the work doesn't exist.
 3. **PR opened** — `gh pr create --draft --base <appropriate-base> --title "..." --body "Closes task t_xxxxx ..."` referencing the task ID. Draft PRs are fine for in-progress work.
 4. **PR marked ready** — `gh pr ready <N>` before self-blocking for review. A draft PR sitting open is invisible to the merger without an extra manual step. Flip out of draft UNLESS the work is genuinely incomplete and you want explicit hold-for-WIP semantics — in that case keep draft + say so in the block reason.
 5. **Reported** — task completion summary in Hermes includes the PR URL. The dispatcher should not mark a task `done` if `gh pr list --search 'is:open <task-id>'` returns empty.
+6. **Reviewed** — the PR description MUST contain the line `Reviewed by <reviewer> in kanban task t_XXXXXXXX` before merge. This is the audit trail. Without it, git-log archaeology can't reconstruct who reviewed what. See the Canonical Review section below.
 
 If you literally have nothing to push (pure decision/review tasks with no file output), state that explicitly in the completion summary: "No code/doc deliverable; this was a decision/review-only task."
+
+## Canonical review (added v1.5, 2026-05-15)
+
+**Rule.** A PR is "reviewed" when BOTH are true:
+
+(a) a sibling kanban review task assigned to the reviewer (Athena for code-level review) is `done` with a substantive verdict comment, AND
+
+(b) the PR description contains the line `Reviewed by <reviewer> in kanban task t_XXXXXXXX`.
+
+The GitHub formal-review state being empty is EXPECTED and not a defect under the shared-identity constraint described below.
+
+**Why this rule exists.** The shared `marc-the-nomad` GitHub identity makes `gh pr review --approve` structurally impossible — the PR author and reviewer are literally the same GitHub account, and GitHub blocks self-approval. Phase 1 shipped 16 PRs with empty formal-review state as a result. Marc's decision (2026-05-15): **don't block on creating a separate GitHub identity. Formalize kanban-substantive-review as the canonical audit record.** The substantive technical review (Athena's task + PR comment) IS the review of record.
+
+**Posting the review on GitHub.** The reviewer SHOULD run `gh pr review --comment` (NOT `--approve` — that errors on self) to post the substantive review as a GitHub PR comment too:
+
+```bash
+gh pr review <N> --comment --body "Substantive review posted in kanban task t_XXXXXXXX. Summary: ..."
+```
+
+The `--comment` form does NOT hit the self-approval block. This gives a GitHub-visible trail alongside the kanban record without needing a separate identity.
+
+**Phase 2 optional hardening.** If Marc later creates an `athena-reviewer` GitHub account with its own PAT, the doctrine flips to requiring formal `gh pr review --approve` from that identity. Until that account exists, the kanban-task review IS the canonical audit record. This was a deliberate constraint-driven choice, not an oversight — a future operator who sees empty formal-review state on Phase 1/Phase 2 PRs should understand the context.
 
 ## Branch naming
 
@@ -180,6 +203,7 @@ Before closing a task as `done`, run through this in your head:
 - [ ] Branch pushed to `origin` (`git rev-list --count @{u}..HEAD` returns 0)
 - [ ] PR opened (`gh pr list --head <branch> --state open` returns one row)
 - [ ] PR body references the task ID (`Closes task t_xxxxx`)
+- [ ] PR body contains the review audit line (`Reviewed by <reviewer> in kanban task t_XXXXXXXX`)
 - [ ] Tests pass (`go test -race -count=1 ./...` or equivalent — paste output in PR description)
 - [ ] No unintended files committed (binaries, OS metadata, IDE artifacts, secrets)
 - [ ] Commit messages use conventional-commit format
@@ -195,6 +219,7 @@ Before closing a task as `done`, run through this in your head:
 - **Pushing every Hermes-worktree branch to origin.** Hermes creates a worktree per task. That doesn't mean each one needs its own remote branch. If the chain is one consolidated PR, push only the final branch.
 - **Marking a task `done` when only the docs/poller part shipped.** If the task body says "Implement X Component" and you only ship `doc.go` + a runtime emitter — that's not done. Self-block with "Component interface not implemented yet" and let Marc decide whether to split the task or extend the runtime. (PR #6 W1-03 / W3-05 incident, 2026-05-10.)
 - **Opening a PR with a copy-pasted body that doesn't match the actual changes.** Each PR body is its own deliverable. Specifically describe what shipped in this PR, not what the task description said it would do.
+- **Merging without the review audit line.** If the PR body is missing `Reviewed by <reviewer> in kanban task t_XXX`, the git-log archaeology can't reconstruct who reviewed what. Gate 6 is a hard gate — don't merge without it.
 
 ## References
 
@@ -217,7 +242,15 @@ Created on 2026-05-10 by Iris after a Phase 1 incident: Theseus completed all W1
 - **GH_TOKEN sourcing:** agents burned ~17 combined iterations across Janus (t_3b53ec51) and Theseus (t_1ffa28f1) trying sops-decrypt of per-profile secrets for a GitHub token. The age key is lost (May 11) and not being regenerated. Added explicit sourcing from `/var/lib/hermes/.config/gh/hosts.yml`.
 - **Fifth gate of done:** draft PRs left sitting required `gh pr ready` from iris or Marc before merging. PRs #17 and #18 both hit this. Gate 4 is now: `gh pr ready <N>` before self-blocking, unless genuinely holding for WIP.
 
-The five gates of "done" (commit + push + PR + mark-ready + report) plus the bounded branch lifecycle are the canonical answer. The dispatcher will eventually enforce gate 3 automatically; until then, this skill is the contract.
+**v1.5 (2026-05-15)** — formalized kanban-substantive-review as the canonical audit record:
+
+- **Sixth gate of done:** the PR description MUST contain `Reviewed by <reviewer> in kanban task t_XXXXXXXX` before merge. This is the audit trail.
+- **Canonical Review section:** a PR is "reviewed" when the sibling kanban review task is `done` with a substantive comment AND the PR body carries the audit line. Empty GitHub formal-review state is expected under the shared `marc-the-nomad` identity constraint — this is a deliberate constraint-driven choice, not an oversight.
+- **`gh pr review --comment`** guidance so reviews are visible on GitHub too without hitting the self-approval block.
+- **Phase 2 optional hardening** note documenting the option to create a separate `athena-reviewer` GitHub account later.
+- Updated audit checklist + failure modes for gate 6.
+
+The six gates of "done" (commit + push + PR + mark-ready + report + reviewed) plus the bounded branch lifecycle plus the canonical-review rule are the contract. The dispatcher will eventually enforce gate 3 automatically; until then, this skill is the contract.
 
 
 ---
